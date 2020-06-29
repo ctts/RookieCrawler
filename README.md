@@ -17,3 +17,16 @@
 利用面向对象和模块化的思想将这三个库进行了整合，源码也是简单易懂，如果有这三个库的开发经验的同学相信一天就能读懂源码。
 
 源码使用 typescript 编写
+
+## 基础使用方法
+
+```
+let Crawler = require('../lib/Crawler')
+const crawler = new Crawler('weibo', 'https://s.weibo.com')
+let targetDomArray = crawler.beginToCrawlHtml('https://s.weibo.com/top/summary', '#pins > img')
+targetDomArray.then(domArray => {
+    domArray.forEach(val => {
+        console.log(val.attr('data-original'))
+    })
+})
+```

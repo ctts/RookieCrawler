@@ -1,8 +1,10 @@
+import * as fs from 'fs'
 import * as superagent from 'superagent'
 import * as cheerio from 'cheerio'
 import Schedule from './Schedule';
 require('superagent-charset')(superagent)
 require('superagent-proxy')(superagent)
+
 
 enum Methods {
     post = "post",
@@ -17,12 +19,12 @@ class Crawler {
     commonHeader: Object
 
     constructor(
-        siteName: string,
-        domain: string
+        siteName: string = '',
+        domain: string = ''
     ) {
         this.siteName = siteName
+        this.domain = domain.replace(/(http|https):\/\//, '')
         this.scheduleMap = new Map()
-        this.domain = domain
         this.createCommonHeader()
     }
 
@@ -55,48 +57,56 @@ class Crawler {
         })
         this.scheduleMap.clear()
     }
-    async beginToCrawlHtml(url: string, path: string, header?: object): Promise<Array<Cheerio>> {
-        let html = await this.getTarget(url, Methods.get, header)
-        return this.analysisHTML(html.text, path)
+    // 开始爬取html
+    async beginToCrawlHtml(url: string | Array<string>, path: string, header?: object): Promise<Array<Cheerio> | Array<Array<Cheerio>>> {
+        if (typeof url === 'string') {
+            let html: superagent.Response = await this.getTarget(url, Methods.get, header)
+            return this.analysisHTML(html.text, path)
+        } else {
+            let responses: Array<Promise<superagent.Response>> = []
+            let res: Array<Array<Cheerio>> = []
+            responses = url.map(u => this.getTarget(u, Methods.get, header))
+            let htmls = await Promise.all(responses)
+            res = htmls.map(html => this.analysisHTML(html.text, path))
+            return res
+        }
     }
-    async beginToCrawlApi(
-        url: string,
-        method: Methods,
-        header: object = this.commonHeader,
-        body?: object,
-    ): Promise<superagent.Response> {
-        return await this.getTarget(url, method, header, body)
-    }
-    // 获取目标url
+    // 获取目标资源
     async getTarget(
         url: string,
-        method: Methods,
+        method: Methods = Methods.get,
         header: Object = this.commonHeader,
         body?: Object
     ): Promise<superagent.Response> {
-        return new Promise((resolve, reject) => {
-            superagent[method](url)
+        let res: Promise<superagent.Response>
+        try {
+            res = await superagent[method](url)
                 .set(header)
                 .send(body)
                 // @ts-ignore
                 .charset() // superagent-charset 辅助解析
                 .buffer(true)
-                .end((err: superagent.ResponseError, res: superagent.Response) => {
-                    if (!err) {
-                        resolve(res)
-                    } else {
-                        reject(err)
-                    }
-                })
-        })
+        } catch (error) {
+            console.warn(error)
+        }
+        return res
     }
-    // 爬取文件方法
-    pipeTargetFile(uri: string, stream: NodeJS.WritableStream, header?: Object): NodeJS.WritableStream {
-        header = header || this.commonHeader
-        let resStream = superagent
-            .get(uri)
-            .set(header)
-            .pipe(stream)
+    /**
+     * // 爬取文件方法
+     * @param uri 文件uri
+     * @param stream node写入流
+     * @param header 请求头
+     */
+    pipeTargetFile(uri: string, stream: NodeJS.WritableStream, header: Object = this.commonHeader): NodeJS.WritableStream {
+        let resStream: NodeJS.WritableStream
+        try {
+            resStream = superagent
+                .get(uri)
+                .set(header)
+                .pipe(stream)
+        } catch (error) {
+            console.warn(error)
+        }
         return resStream
     }
     // 新建头部信息，初步反反爬虫
@@ -105,14 +115,15 @@ class Crawler {
             this.commonHeader = custom
             return
         }
-        this.commonHeader = {
+        let domain = this.domain
+        let commonHeader = {
             'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'close',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36',
-            'referer': this.domain,
-            'host': this.domain
+            'referer': domain || 'www.baidu.com',
         }
+        domain && (commonHeader['host'] = domain)
+        this.commonHeader = commonHeader
     }
     /**
      * html解析方法，使用cheerio辅助解析
@@ -130,6 +141,7 @@ class Crawler {
             let content = $(element)
             result.push(content)
         })
+        result.length === 0 && console.warn('No data found in this path!')
         return result
     }
 }

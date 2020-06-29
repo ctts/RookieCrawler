@@ -56,7 +56,7 @@ class Schedule implements ScheduleBase {
                 } else {
                     clearInterval(schedule as NodeJS.Timeout)
                 }
-            }, this.frequency as number)
+            }, this.frequency as number + Math.random() * 100)
         }
         return schedule
     }
