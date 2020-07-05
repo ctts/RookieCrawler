@@ -17,20 +17,16 @@ class Schedule implements ScheduleBase {
     time: number | boolean
     instance: nodeSchedule.Job | NodeJS.Timeout
     constructor(
-        name: string,
         func: Function,
         time: number | boolean = true,
         frequency: string | number = 100,
     ) {
-        this.name = name
         this.func = func
         this.frequency = frequency
         this.time = time
-        this.work()
     }
     work() {
-        this.func.call(this)
-        this.instance = this.createSchedule(typeof this.frequency)
+        this.createSchedule(typeof this.frequency)
     }
     createSchedule(type: string): nodeSchedule.Job | NodeJS.Timeout {
         let time = this.time

@@ -1,10 +1,24 @@
-import * as fs from 'fs'
 import * as superagent from 'superagent'
 import * as cheerio from 'cheerio'
 import Schedule from './Schedule';
 require('superagent-charset')(superagent)
 require('superagent-proxy')(superagent)
 
+interface CrawlerBase {
+    siteName: string
+    domain: string
+    scheduleMap: Map<string, Schedule> // 存储nodeschedule对象或interval的id
+    commonHeader: Object
+    targetHtml: string
+    createSchedule: Function
+    cancelSchedule: Function
+    cancelAllSchedule: Function
+    beginToCrawlHtml: Function
+    getTarget: Function
+    pipeTargetFile: Function
+    createCommonHeader: Function
+    analysisHTML: Function
+}
 
 enum Methods {
     post = "post",
@@ -12,9 +26,10 @@ enum Methods {
     head = "head",
 }
 
-class Crawler {
+class RookieCrawler implements CrawlerBase {
     siteName: string
     domain: string
+    targetHtml: string;
     scheduleMap: Map<string, Schedule> // 存储nodeschedule对象或interval的id
     commonHeader: Object
 
@@ -27,7 +42,6 @@ class Crawler {
         this.scheduleMap = new Map()
         this.createCommonHeader()
     }
-
     /**
      * 创建一个定时任务
      * @param name 任务名
@@ -41,7 +55,8 @@ class Crawler {
         frequency?: string | number,
         time?: number,
     ) {
-        let schedule = new Schedule(name, func, time, frequency)
+        // let schedule = new Schedule(name, func, time, frequency)
+        let schedule = new Schedule(func, time, frequency)
         this.scheduleMap.set(name, schedule)
     }
     // 删除定时任务
@@ -146,4 +161,4 @@ class Crawler {
     }
 }
 
-module.exports = Crawler
+module.exports = RookieCrawler

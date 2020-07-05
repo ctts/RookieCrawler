@@ -1,5 +1,4 @@
 const fs = require('fs')
-
 let Crawler = require('../lib/Crawler')
 const crawler = new Crawler()
 const path = '#SUBD1565235654333777 > div > div > div.content > ul > li > div.conBox > div.img > a > img'
