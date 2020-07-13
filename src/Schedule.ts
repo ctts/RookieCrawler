@@ -34,10 +34,10 @@ class Schedule implements ScheduleBase {
         if (type === 'string') {
             schedule = nodeSchedule.scheduleJob(this.frequency as string, () => {
                 if (typeof time === 'number' && time > 0) {
-                    this.func.call(this)
+                    this.func()
                     time--
                 } else if (typeof time === 'boolean' && time) {
-                    this.func.call(this)
+                    this.func()
                 } else {
                     nodeSchedule.cancelJob(schedule as nodeSchedule.Job)
                 }
@@ -45,10 +45,10 @@ class Schedule implements ScheduleBase {
         } else {
             schedule = setInterval(() => {
                 if (typeof time === 'number' && time > 0) {
-                    this.func.call(this)
+                    this.func()
                     time--
                 } else if (typeof time === 'boolean' && time) {
-                    this.func.call(this)
+                    this.func()
                 } else {
                     clearInterval(schedule as NodeJS.Timeout)
                 }

@@ -20,17 +20,13 @@ enum Methods {
 class RokieCrawler implements RokieCrawlerBase {
     siteName: string
     siteUrl: string | Array<string>
-    domain: string
     path: Array<string> | string
     targetHtml: string | Array<string>
-    commonHeader: Object
     schedule: Schedule
     constructor(siteName: string, siteUrl: string | Array<string>, path: string | Array<string>) {
         this.siteName = siteName
         this.siteUrl = siteUrl
-        // this.domain = siteUrl[0].replace(/(http|https):\/\//, '') || <string>siteUrl.replace(/(http|https):\/\//, '')
         this.path = path
-        this.createCommonHeader()
     }
     setSchedule(
         frequency: string | number,
@@ -41,28 +37,27 @@ class RokieCrawler implements RokieCrawlerBase {
         this.schedule = new Schedule(func, time, frequency)
     }
     createScheduleCallback(callback: Function): Function {
-        let _this: RokieCrawler = this
-        let paths = _this.path
+        let paths = this.path
 
-        return async function () {
+        return async () => {
             let result: Array<Array<Cheerio> | Cheerio>
 
-            if (typeof _this.siteUrl === 'string') {
-                _this.targetHtml = (await _this.crawlTarget(_this.siteUrl)).text
+            if (typeof this.siteUrl === 'string') {
+                this.targetHtml = (await this.crawlTarget(this.siteUrl)).text
             } else {
-                _this.targetHtml = (await Promise.all(_this.crawlMutipartTarget(_this.siteUrl))).map(res => res.text)
+                this.targetHtml = (await Promise.all(this.crawlMutipartTarget(this.siteUrl))).map(res => res.text)
             }
 
             if (typeof paths === 'string') {
-                result = _this.analysisHTML(_this.targetHtml, paths)
+                result = this.analysisHTML(this.targetHtml, paths)
             } else {
-                result = paths.map(path => _this.analysisHTML(_this.targetHtml, path))
+                result = paths.map(path => this.analysisHTML(this.targetHtml, path))
             }
 
-            return callback.call(_this, result, paths)
+            return callback.call(this, result, paths)
         }
     }
-    beginToCrawl() {
+    work() {
         this.schedule.work()
     }
     // 开始爬取html
@@ -82,24 +77,18 @@ class RokieCrawler implements RokieCrawlerBase {
     crawlMutipartTarget(
         urls: Array<string>,
         method: Methods = Methods.get,
-        header: Object = this.commonHeader,
+        header: Object = {},
         body?: Object
     ): Array<Promise<superagent.Response>> {
         return urls.map(url => {
-            return superagent[method](url)
-                .set(header)
-                .send(body)
-                // @ts-ignore
-                .charset() // superagent-charset 辅助解析
-                .buffer(true)
+            return this.crawlTarget(url, method, header, body)
         })
-
     }
     // 获取目标资源
     async crawlTarget(
         url: string,
         method: Methods = Methods.get,
-        header: Object = this.commonHeader,
+        header: Object = {},
         body?: Object
     ): Promise<superagent.Response> {
         return await superagent[method](url)
@@ -110,12 +99,12 @@ class RokieCrawler implements RokieCrawlerBase {
             .buffer(true)
     }
     /**
-     * // 爬取文件方法
+     * // 获取文件方法
      * @param uri 文件uri
      * @param stream node写入流
      * @param header 请求头
      */
-    pipeTargetFile(uri: string, stream: NodeJS.WritableStream, header: Object = this.commonHeader): NodeJS.WritableStream {
+    pipeTargetFile(uri: string, stream: NodeJS.WritableStream, header?: Object): NodeJS.WritableStream {
         let resStream: NodeJS.WritableStream
         try {
             resStream = superagent
@@ -126,22 +115,6 @@ class RokieCrawler implements RokieCrawlerBase {
             console.warn(error)
         }
         return resStream
-    }
-    // 新建头部信息，初步反反爬虫
-    createCommonHeader(custom?: Object) {
-        if (custom) {
-            this.commonHeader = custom
-            return
-        }
-        let domain = this.domain
-        let commonHeader = {
-            'Accept': '*/*',
-            'Connection': 'close',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36',
-            'referer': domain || 'www.baidu.com',
-        }
-        domain && (commonHeader['host'] = domain)
-        this.commonHeader = commonHeader
     }
     /**
      * html解析方法，使用cheerio辅助解析
@@ -163,16 +136,16 @@ class RokieCrawler implements RokieCrawlerBase {
             result.length === 0 && console.warn('No data found in this path!')
             return result
         } else {
-            return html.reduce((sum: Array<Cheerio>, cur: string) => {
-                let $ = cheerio.load(cur)
+            return html.reduce((resSum: Array<Cheerio>, curhtml: string) => {
+                let $ = cheerio.load(curhtml)
                 let target: CheerioElement = allPath.reduce((sum: any, cur: string, index) => {
                     return index === 0 ? $(cur) : sum.find(cur)
                 }, {})
                 $(target).each((index: number, element: CheerioElement) => {
                     let content = $(element)
-                    sum.push(content)
+                    resSum.push(content)
                 })
-                return sum
+                return resSum
             }, [])
         }
     }
